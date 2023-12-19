@@ -1,5 +1,10 @@
 package disgotypes
 
+import (
+	"log"
+	"main/dca"
+)
+
 type Media struct {
 	Title     string
 	FilePath  string
@@ -10,17 +15,15 @@ type Media struct {
 }
 
 type StreamingChannel struct {
-	GuildID      string
-	MediaChannel chan *Media
-	UserActions  *UserActions
+	GuildID          string
+	MediaChannel     chan *Media
+	UserActions      *UserActions
+	StreamingSession *dca.StreamingSession
 }
 
 func (sc *StreamingChannel) PrepairStreaming(maxQueueSize int) {
 	sc.MediaChannel = make(chan *Media, maxQueueSize)
-	sc.UserActions = &UserActions{
-		SkipChannel: make(chan bool, 1),
-		StopChannel: make(chan bool, 1),
-	}
+	sc.UserActions = MakeUserActions()
 }
 
 func (sc *StreamingChannel) IsStreaming() bool {
@@ -46,9 +49,18 @@ func (sc *StreamingChannel) StopStreaming() {
 }
 
 type UserActions struct {
-	SkipChannel chan bool
-	StopChannel chan bool
-	Stopped     bool
+	SkipChannel  chan bool
+	StopChannel  chan bool
+	StartChannel chan bool
+	Stopped      bool
+}
+
+func MakeUserActions() *UserActions {
+	return &UserActions{
+		SkipChannel:  make(chan bool, 1),
+		StopChannel:  make(chan bool, 1),
+		StartChannel: make(chan bool, 1),
+	}
 }
 
 func (ua *UserActions) Stop() {
@@ -58,4 +70,9 @@ func (ua *UserActions) Stop() {
 
 func (ua *UserActions) Skip() {
 	ua.SkipChannel <- true
+}
+
+func (ua *UserActions) Start() {
+	log.Println("User Actions Start")
+	ua.StartChannel <- true
 }

@@ -58,13 +58,14 @@ func play(v *discordgo.VoiceConnection, m *disgotypes.Media, sc *disgotypes.Stre
 	}
 	defer encodeSession.Cleanup()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 
 	done := make(chan error)
-	dca.NewStream(encodeSession, v, done)
+	sc.StreamingSession = dca.NewStream(encodeSession, v, done)
 
 	select {
 	case err := <-done:
+		log.Println(done)
 		if err != nil {
 			log.Print("error during the streaming: ", err)
 			return
@@ -72,8 +73,5 @@ func play(v *discordgo.VoiceConnection, m *disgotypes.Media, sc *disgotypes.Stre
 
 	case <-sc.UserActions.SkipChannel:
 		_ = encodeSession.Stop()
-	case <-sc.UserActions.StopChannel:
-		_ = encodeSession.Stop()
 	}
-
 }

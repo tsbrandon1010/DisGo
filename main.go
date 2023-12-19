@@ -10,13 +10,21 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 )
 
+type Guilds struct {
+	guildStreams map[string]*disgotypes.StreamingChannel
+	mu           sync.Mutex
+}
+
 var (
-	guilds       = map[string]disgotypes.StreamingChannel{}
+	guilds = Guilds{
+		guildStreams: make(map[string]*disgotypes.StreamingChannel),
+	}
 	audioService = dlp.CreateService(3610)
 	APP_ID       = os.Getenv("APP_ID")
 )
@@ -26,7 +34,9 @@ func createGuild(s *discordgo.Session, event *discordgo.GuildCreate) {
 		return
 	}
 	_, _ = s.ApplicationCommandBulkOverwrite(APP_ID, event.Guild.ID, SlashCommands)
-	guilds[event.Guild.ID] = disgotypes.StreamingChannel{GuildID: event.Guild.ID}
+	guilds.mu.Lock()
+	guilds.guildStreams[event.Guild.ID] = &disgotypes.StreamingChannel{GuildID: event.Guild.ID}
+	guilds.mu.Unlock()
 }
 
 func main() {
@@ -59,9 +69,6 @@ func main() {
 	log.Println("Ctrl+C to exit")
 	<-halt
 
-	if err != nil {
-		log.Panicln(err)
-	}
 }
 
 const COMMAND_PREFIX = "!"
@@ -102,16 +109,24 @@ func PrefixCommandHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch command {
 
 	case "play":
-		YoutubeHandler(s, m, audioService, command)
+		AudioPlayHandler(s, m, audioService, command)
+	case "stop":
+		AudioStopHandler(s, m)
+	case "skip":
+		AudioSkipHandler(s, m)
+	case "clear":
+		AudioClearHandler(s, m)
+	case "start":
+		AudioStartHandler(s, m)
 	}
 }
 
-func YoutubeHandler(s *discordgo.Session, m *discordgo.MessageCreate, as *dlp.AudioService, command string) {
+func AudioPlayHandler(s *discordgo.Session, m *discordgo.MessageCreate, as *dlp.AudioService, command string) {
 	args := strings.TrimSpace(strings.Replace(m.Content, fmt.Sprintf("%s%s", COMMAND_PREFIX, command), "", 1))
 
 	log.Println(command, args)
 
-	sc := guilds[m.GuildID]
+	sc := guilds.guildStreams[m.GuildID]
 	if sc.IsQueueFull() {
 		_, _ = s.ChannelMessageSend(m.ChannelID, "The music queue is full")
 		return
@@ -148,7 +163,7 @@ func YoutubeHandler(s *discordgo.Session, m *discordgo.MessageCreate, as *dlp.Au
 
 	if createNewWorker {
 		go func() {
-			err = audio.Worker(s, &sc, m.GuildID, vcID)
+			err = audio.Worker(s, sc, m.GuildID, vcID)
 			if err != nil {
 				_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Unable to start voice worker: %s", err.Error()))
 				os.Remove(media.FilePath)
@@ -156,4 +171,34 @@ func YoutubeHandler(s *discordgo.Session, m *discordgo.MessageCreate, as *dlp.Au
 			}
 		}()
 	}
+}
+
+func AudioStopHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	guilds.mu.Lock()
+	sc := guilds.guildStreams[m.GuildID]
+	guilds.mu.Unlock()
+	sc.StreamingSession.SetPaused(true)
+}
+
+func AudioSkipHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	guilds.mu.Lock()
+	sc := guilds.guildStreams[m.GuildID]
+	guilds.mu.Unlock()
+	sc.UserActions.Skip()
+}
+
+func AudioClearHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	guilds.mu.Lock()
+	sc := guilds.guildStreams[m.GuildID]
+	guilds.mu.Unlock()
+	sc.StopStreaming()
+}
+
+func AudioStartHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	guilds.mu.Lock()
+	sc := guilds.guildStreams[m.GuildID]
+	guilds.mu.Unlock()
+
+	log.Println(sc.StreamingSession)
+	sc.StreamingSession.SetPaused(false)
 }
