@@ -1,0 +1,41 @@
+name: Bot CD
+
+on:
+  push:
+      branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-binaries:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build binaries
+        run: |
+          cd ~/disgo &&
+          git checkout main &&
+          git fetch --all &&
+          git reset --hard origin/main &&
+          git pull origin main &&
+          go build -o ~/disgo/bin/main
+
+  stop-bot:
+    runs-on: self-hosted
+    needs: build-binaries
+    steps:
+        - name: stop docker container
+          run: docker stop disgo-bot || true
+        - name: remove docker container
+          run: docker remove disgo-bot || true
+  
+  start-bot:
+    runs-on: self-hosted
+    needs: stop-bot
+    steps:
+      - name: build docker container
+        run: cd ~/disgo && pwd && docker build --no-cache -t disgo-bot .
+      - name: run docker container
+        run: cd ~/disgo && docker run -d --name disgo-bot disgo-bot
