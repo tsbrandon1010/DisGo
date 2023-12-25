@@ -18,18 +18,21 @@ type Guilds struct {
 }
 
 var (
+	_      = godotenv.Load()
 	guilds = Guilds{
 		guildStreams: make(map[string]*disgotypes.StreamingChannel),
 	}
 	audioService = dlp.CreateService(3610)
-	APP_ID       = "1175226963682656296"
+	token        = os.Getenv("TOKEN")
+	appID        = os.Getenv("APP_ID")
 )
 
 func createGuild(s *discordgo.Session, event *discordgo.GuildCreate) {
 	if event.Guild.Unavailable {
 		return
 	}
-	_, _ = s.ApplicationCommandBulkOverwrite(APP_ID, event.Guild.ID, SlashCommands)
+	log.Println(token, appID)
+	//_, _ = s.ApplicationCommandBulkOverwrite(appID, event.Guild.ID, SlashCommands)
 	guilds.mu.Lock()
 	guilds.guildStreams[event.Guild.ID] = &disgotypes.StreamingChannel{GuildID: event.Guild.ID}
 	guilds.mu.Unlock()
@@ -43,8 +46,6 @@ func updateStatus(s *discordgo.Session) {
 }
 
 func main() {
-	godotenv.Load()
-	token := os.Getenv("TOKEN")
 
 	if token == "" {
 		log.Println("Invalid Discord API Token... ")
@@ -56,7 +57,7 @@ func main() {
 	}
 
 	sess.AddHandler(createGuild)
-	sess.AddHandler(SlashCommandHandler)
+	//sess.AddHandler(SlashCommandHandler)
 	sess.AddHandler(PrefixCommandHandler)
 
 	sess.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
