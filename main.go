@@ -32,7 +32,7 @@ func createGuild(s *discordgo.Session, event *discordgo.GuildCreate) {
 		return
 	}
 	log.Println(token, appID)
-	//_, _ = s.ApplicationCommandBulkOverwrite(appID, event.Guild.ID, SlashCommands)
+	_, _ = s.ApplicationCommandBulkOverwrite(appID, event.Guild.ID, SlashCommands)
 	guilds.mu.Lock()
 	guilds.guildStreams[event.Guild.ID] = &disgotypes.StreamingChannel{GuildID: event.Guild.ID}
 	guilds.mu.Unlock()
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	sess.AddHandler(createGuild)
-	//sess.AddHandler(SlashCommandHandler)
+	sess.AddHandler(SlashCommandHandler)
 	sess.AddHandler(PrefixCommandHandler)
 
 	sess.Identify.Intents = discordgo.IntentsAllWithoutPrivileged

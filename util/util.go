@@ -2,18 +2,19 @@ package util
 
 import (
 	"errors"
+	disgotypes "main/disgo-types"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-func GetAuthorVoiceChannel(s *discordgo.Session, m *discordgo.MessageCreate) (string, error) {
-	guild, err := s.State.Guild(m.GuildID)
+func GetAuthorVoiceChannel(s *discordgo.Session, c disgotypes.ConnectionInfo) (string, error) {
+	guild, err := s.State.Guild(c.GuildID)
 	if err != nil {
 		return "", err
 	}
 
 	for _, voiceInstace := range guild.VoiceStates {
-		if voiceInstace.UserID == m.Author.ID {
+		if voiceInstace.UserID == c.AuthorID {
 			return voiceInstace.ChannelID, nil
 		}
 	}

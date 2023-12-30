@@ -76,3 +76,9 @@ func (ua *UserActions) Start() {
 	log.Println("User Actions Start")
 	ua.StartChannel <- true
 }
+
+type ConnectionInfo struct {
+	GuildID   string
+	ChannelID string
+	AuthorID  string
+}
